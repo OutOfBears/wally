@@ -18,6 +18,7 @@ use crate::{config::Config, error::ApiErrorStatus};
 #[serde(tag = "type", content = "value", rename_all = "kebab-case")]
 pub enum AuthMode {
     ApiKey(String),
+    WriteApiKey(String),
     DoubleApiKey {
         read: Option<String>,
         write: String,
@@ -64,6 +65,7 @@ impl fmt::Debug for AuthMode {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match self {
             AuthMode::ApiKey(_) => write!(formatter, "API key"),
+            AuthMode::WriteApiKey(_) => write!(formatter, "write API key"),
             AuthMode::DoubleApiKey { .. } => write!(formatter, "double API key"),
             AuthMode::GithubOAuth { .. } => write!(formatter, "Github OAuth"),
             AuthMode::Unauthenticated => write!(formatter, "no authentication"),
@@ -192,6 +194,7 @@ impl<'r> FromRequest<'r> for ReadAccess {
         match &config.auth {
             AuthMode::Unauthenticated => Outcome::Success(ReadAccess::Public),
             AuthMode::GithubOAuth { .. } => Outcome::Success(ReadAccess::Public),
+            AuthMode::WriteApiKey { .. } => Outcome::Success(ReadAccess::Public),
             AuthMode::ApiKey(key) => match_api_key(request, key, ReadAccess::ApiKey),
             AuthMode::DoubleApiKey { read, .. } => match read {
                 None => Outcome::Success(ReadAccess::Public),
@@ -247,6 +250,7 @@ impl<'r> FromRequest<'r> for WriteAccess {
                 .status(Status::Unauthorized)
                 .into(),
             AuthMode::ApiKey(key) => match_api_key(request, key, WriteAccess::ApiKey),
+            AuthMode::WriteApiKey(key) => match_api_key(request, key, WriteAccess::ApiKey),
             AuthMode::DoubleApiKey { write, .. } => {
                 match_api_key(request, write, WriteAccess::ApiKey)
             }
